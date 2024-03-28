@@ -1,5 +1,6 @@
 package com.lzh.web.model.enums;
 
+import lombok.Getter;
 import org.apache.commons.lang3.ObjectUtils;
 
 import java.util.Arrays;
@@ -10,6 +11,7 @@ import java.util.stream.Collectors;
  * 用户角色枚举
  * @author lzh
  */
+@Getter
 public enum UserRoleEnum {
 
     USER("用户", "user"),
