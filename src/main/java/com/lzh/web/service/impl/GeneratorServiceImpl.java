@@ -115,7 +115,6 @@ public class GeneratorServiceImpl extends ServiceImpl<GeneratorMapper, Generator
     @Override
     public GeneratorVO getGeneratorVO(Generator generator, HttpServletRequest request) {
         GeneratorVO generatorVO = GeneratorVO.objToVo(generator);
-        long generatorId = generator.getId();
         // 1. 关联查询用户信息
         Long userId = generator.getUserId();
         User user = null;

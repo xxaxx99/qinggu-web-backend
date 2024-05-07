@@ -11,14 +11,12 @@ import com.lzh.web.service.UserService;
 import com.lzh.web.utils.AliOssUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 
 /**
@@ -52,16 +50,32 @@ public class FileController {
         // 文件目录：根据业务、用户来划分
         String uuid = RandomStringUtils.randomAlphanumeric(8);
         String filename = uuid + "-" + multipartFile.getOriginalFilename();
-        String filepath = String.format("/%s/%s/%s", fileUploadBizEnum.getValue(), loginUser.getId(), filename);
+        String filepath = String.format("%s/%s/%s", fileUploadBizEnum.getValue(), loginUser.getId(), filename);
         try {
             // 上传文件
-            String url = AliOssUtils.uploadFile(filename, multipartFile.getInputStream());
+            String url = AliOssUtils.uploadFile(filepath, multipartFile.getInputStream());
             // 返回可访问地址
+            if (fileUploadBizEnum == FileUploadBizEnum.USER_AVATAR) {
+                loginUser.setUserAvatar(url);
+                userService.updateById(loginUser);
+            }
             return ResultUtils.success(url);
         } catch (Exception e) {
             log.error("file upload error, filepath = " + filepath, e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
         }
+    }
+
+    /**
+     * 测试文件下载
+     *
+     * @param filepath
+     * @param response
+     * @return
+     */
+    @GetMapping("/download")
+    public void DownloadFile(String filepath, HttpServletResponse response) throws Exception {
+        AliOssUtils.downloadFile(filepath,response);
     }
 
     /**

@@ -5,16 +5,17 @@ import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.lzh.web.common.ErrorCode;
+import com.lzh.web.common.ResultUtils;
 import com.lzh.web.constant.CommonConstant;
 import com.lzh.web.exception.BusinessException;
 import com.lzh.web.mapper.UserMapper;
+import com.lzh.web.model.dto.user.CheckPasswordRequest;
 import com.lzh.web.model.dto.user.UserQueryRequest;
 import com.lzh.web.model.entity.User;
 import com.lzh.web.model.enums.UserRoleEnum;
 import com.lzh.web.model.vo.LoginUserVO;
 import com.lzh.web.model.vo.UserVO;
 import com.lzh.web.service.UserService;
-import com.lzh.web.utils.JwtUtils;
 import com.lzh.web.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -25,6 +26,8 @@ import org.springframework.util.DigestUtils;
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.lzh.web.constant.UserConstant.USER_LOGIN_STATE;
@@ -49,17 +52,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
         if (userAccount.length() < 4) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短,不能小于4位");
         }
+        extracted(userAccount);
         if (userPassword.length() < 8 || checkPassword.length() < 8) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短,不能小于8位");
         }
         // 密码和校验密码相同
         if (!userPassword.equals(checkPassword)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
         }
         synchronized (userAccount.intern()) {
-            // 账户不能重复
+            // 账号不能重复
             QueryWrapper<User> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("userAccount", userAccount);
             long count = this.baseMapper.selectCount(queryWrapper);
@@ -87,14 +91,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         // 1. 校验
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
+            ResultUtils.error(ErrorCode.PARAMS_ERROR,"请求参数不能为空");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数不能为空");
         }
         if (userAccount.length() < 4) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号错误");
+            ResultUtils.error(ErrorCode.PARAMS_ERROR,"用户名长度不能小于4");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户名长度不能小于4");
         }
         if (userPassword.length() < 8) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
+            ResultUtils.error(ErrorCode.PARAMS_ERROR,"用户密码长度不能小于8");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码长度不能小于8");
         }
+        extracted(userAccount);
         // 2. 加密
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
         // 查询用户是否存在
@@ -109,9 +117,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         // 3. 记录用户的登录态
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
-        LoginUserVO loginUserVO = getLoginUserVO(user);
-        loginUserVO.setToken(JwtUtils.createJwt(user));
-        return loginUserVO;
+        return getLoginUserVO(user);
     }
 
     /**
@@ -224,6 +230,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
         }
         Long id = userQueryRequest.getId();
+        String userAccount = userQueryRequest.getUserAccount();
         String userName = userQueryRequest.getUserName();
         String userProfile = userQueryRequest.getUserProfile();
         String userRole = userQueryRequest.getUserRole();
@@ -234,8 +241,54 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.eq(StringUtils.isNotBlank(userRole), "userRole", userRole);
         queryWrapper.like(StringUtils.isNotBlank(userProfile), "userProfile", userProfile);
         queryWrapper.like(StringUtils.isNotBlank(userName), "userName", userName);
+        queryWrapper.like(StringUtils.isNotBlank(userAccount), "userAccount", userAccount);
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
                 sortField);
         return queryWrapper;
+    }
+
+    @Override
+    public long modifyPassword(CheckPasswordRequest checkPasswordRequest) {
+        if (checkPasswordRequest == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Long id = checkPasswordRequest.getId();
+        User modifyUser = this.getById(id);
+        if(modifyUser == null){
+            throw new BusinessException(ErrorCode.FORBIDDEN_ERROR);
+        }
+        String userAccount = checkPasswordRequest.getUserAccount();
+        extracted(userAccount);
+        String userPassword = checkPasswordRequest.getUserPassword();
+        String checkPassword = checkPasswordRequest.getCheckPassword();
+        if (userPassword.length() < 8 || checkPassword.length() < 8) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户/确认密码过短,不能小于8位");
+        }
+        // 密码和校验密码不相同
+        if (!userPassword.equals(checkPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
+        }
+        // 2. 加密
+        String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+        modifyUser.setUserAccount(userAccount);
+        modifyUser.setUserPassword(encryptPassword);
+        boolean saveResult = this.updateById(modifyUser);
+        if (!saveResult) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
+        }
+        return modifyUser.getId();
+    }
+
+    /**
+     * 正则表达式校验账号不可以有特殊符号
+     * @param userAccount
+     */
+    private static void extracted(String userAccount) {
+        // 账户不能包含特殊字符
+        String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
+        Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
+        if (matcher.find()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号不能包含特殊字符");
+        }
     }
 }

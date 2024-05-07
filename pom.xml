@@ -29,7 +29,6 @@
             <artifactId>vertx-core</artifactId>
             <version>4.5.1</version>
         </dependency>
-        <!-- 需要自己打包 -->
         <dependency>
             <groupId>com.lzh</groupId>
             <artifactId>qinggu-generator-maker</artifactId>
@@ -60,14 +59,14 @@
             <version>3.5.2</version>
         </dependency>
         <!-- redis -->
-        <!--<dependency>-->
-        <!--    <groupId>org.springframework.boot</groupId>-->
-        <!--    <artifactId>spring-boot-starter-data-redis</artifactId>-->
-        <!--</dependency>-->
-        <!--<dependency>-->
-        <!--    <groupId>org.springframework.session</groupId>-->
-        <!--    <artifactId>spring-session-data-redis</artifactId>-->
-        <!--</dependency>-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
         <!-- elasticsearch-->
         <dependency>
             <groupId>org.springframework.boot</groupId>

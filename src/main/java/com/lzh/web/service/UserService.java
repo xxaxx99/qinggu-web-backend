@@ -2,6 +2,7 @@ package com.lzh.web.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.lzh.web.model.dto.user.CheckPasswordRequest;
 import com.lzh.web.model.dto.user.UserQueryRequest;
 import com.lzh.web.model.entity.User;
 import com.lzh.web.model.vo.LoginUserVO;
@@ -107,4 +108,11 @@ public interface UserService extends IService<User> {
      */
     QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest);
 
+
+    /**
+     * 修改密码
+     * @param checkPasswordRequest
+     * @return
+     */
+    long modifyPassword(CheckPasswordRequest checkPasswordRequest);
 }

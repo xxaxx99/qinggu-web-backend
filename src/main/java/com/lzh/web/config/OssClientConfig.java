@@ -10,13 +10,13 @@ import org.springframework.stereotype.Component;
 public class OssClientConfig implements InitializingBean {
 
     //读取配置文件的内容
-    @Value("${aliyun.oss.file.endpoint}")
+    @Value("${oss.client.region}")
     private String endpoint;
-    @Value("${aliyun.oss.file.key-id}")
+    @Value("${oss.client.accessKey}")
     private String keyId;
-    @Value("${aliyun.oss.file.key-secret}")
+    @Value("${oss.client.secretKey}")
     private String keySecret;
-    @Value("${aliyun.oss.file.bucket-name}")
+    @Value("${oss.client.bucket}")
     private String bucketName;
 
     //定义公共静态常量
