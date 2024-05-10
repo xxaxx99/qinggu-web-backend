@@ -41,8 +41,11 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -388,8 +391,8 @@ public class GeneratorController {
         // 定义独立的工作空间
         String projectPath = System.getProperty("user.dir");
         // 必须要用 userId 区分，否则可能会导致输入参数文件冲突
-        String tempDirPath = String.format("%s\\.temp\\use\\%s\\%s", projectPath, id, loginUser.getId());
-        String zipFilePath = tempDirPath + "\\dist.zip";
+        String tempDirPath = String.format("%s/.temp/use/%s/%s", projectPath, id, loginUser.getId()).replace('/', File.separatorChar);
+        String zipFilePath = tempDirPath + File.separator + "dist.zip";
 
         // 目录不存在则创建
         if (!FileUtil.exist(tempDirPath)) {
@@ -431,33 +434,32 @@ public class GeneratorController {
         String jsonStr = JSONUtil.toJsonStr(dataModel);
         FileUtil.writeUtf8String(jsonStr, dataModelFilePath);
 
-        // 执行脚本
-        // 找到脚本文件所在路径
-        // 要注意，如果不是 windows 系统，找 generator 文件而不是 bat
+        // 执行脚
+        // 注意，如果不是 windows 系统，找 generator 文件而不是 bat
         File scriptFile = FileUtil.loopFiles(unzipDistDir, 2, null)
                 .stream()
                 .filter(file -> file.isFile()
-                        && "generator.bat".equals(file.getName()))
+                        && "generator".equals(file.getName()))
                 .findFirst()
                 .orElseThrow(RuntimeException::new);
 
         // 添加可执行权限
-        //try {
-        //    Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("rwxrwxrwx");
-        //    Files.setPosixFilePermissions(scriptFile.toPath(), permissions);
-        //} catch (Exception e) {
-        //    e.printStackTrace();
-        //}
+        try {
+            Set<PosixFilePermission> permissions = PosixFilePermissions.fromString("rwxrwxrwx");
+            Files.setPosixFilePermissions(scriptFile.toPath(), permissions);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         // 构造命令
         File scriptDir = scriptFile.getParentFile();
         // win 系统
-        String scriptAbsolutePath = scriptFile.getAbsolutePath().replace("/", "\\");
-        String[] commands = new String[]{scriptAbsolutePath, "json-generate", "--file=" + dataModelFilePath};
+        //String scriptAbsolutePath = scriptFile.getAbsolutePath().replace("/", "\\");
+        //String[] commands = new String[]{scriptAbsolutePath, "json-generate", "--file=" + dataModelFilePath};
 
         // 注意，如果是 mac / linux 系统，要用 "./generator"
-        //String scriptAbsolutePath = scriptFile.getAbsolutePath();
-        //String[] commands = new String[]{scriptAbsolutePath, "json-generate", "--file=" + dataModelFilePath};
+        String scriptAbsolutePath = scriptFile.getAbsolutePath();
+        String[] commands = new String[]{scriptAbsolutePath, "json-generate", "--file=" + dataModelFilePath};
 
         // 这里一定要拆分！
         ProcessBuilder processBuilder = new ProcessBuilder(commands);
@@ -517,7 +519,7 @@ public class GeneratorController {
         // 2) 创建独立的工作空间，下载压缩包到本地
         String projectPath = System.getProperty("user.dir");
         String id = IdUtil.getSnowflakeNextId() + RandomUtil.randomString(6);
-        String tempDirPath = String.format("%s\\.temp\\make\\%s", projectPath, id);
+        String tempDirPath = String.format("%s/.temp/make/%s", projectPath, id).replace('/', File.separatorChar);
         String localZipFilePath = tempDirPath + File.separator + "project.zip";
 
         if (!FileUtil.exist(localZipFilePath)) {
@@ -526,11 +528,7 @@ public class GeneratorController {
 
         // 下载文件
         try {
-            StopWatch stopWatch = new StopWatch();
-            stopWatch.start();
             AliOssUtils.downloadToLocal(zipFilePath, localZipFilePath);
-            stopWatch.stop();
-            System.out.println("下载文件：" + stopWatch.getTotalTimeMillis());
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "压缩包下载失败");
         }
